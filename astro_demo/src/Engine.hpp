@@ -25,7 +25,7 @@ public:
 	//TCOD_mouse_t mouse; comment this out to remove mouse look
 	
 	//Engine();
-	Engine(int screenWidth, int screenHeight);
+	Engine( int screenWidth, int screenHeight );
 	~Engine();
 	void update();
 	void render();
