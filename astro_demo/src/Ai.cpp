@@ -229,6 +229,9 @@ Actor *PlayerAi::choseFromInventory(Actor *owner) {
 		it != owner->container->inventory.end(); it++) {
 		Actor *actor = *it;
 		con.print(2,y,"(%c) %s",shortcut,actor->name);
+		if (actor->pickable->stacks) {
+			con.print(17, y, "(%d)",actor->pickable->stackSize);
+		}
 		y++;
 		shortcut++;
 	}

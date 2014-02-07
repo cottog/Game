@@ -1,5 +1,9 @@
 #include "main.hpp"
 
+Pickable::Pickable(bool stacks, int stackSize, PickableType type) : 
+	stacks(stacks),stackSize(stackSize), type(type) {
+}
+
 Pickable *Pickable::create(TCODZip &zip) {
 	PickableType type = (PickableType)zip.getInt();
 	Pickable *pickable = NULL;
@@ -8,6 +12,7 @@ Pickable *Pickable::create(TCODZip &zip) {
 		case LIGHTNING_BOLT: pickable = new LightningBolt(0,0); break;
 		case CONFUSER: pickable = new Confuser(0,0); break;
 		case FIREBALL: pickable = new Fireball(0,0,0); break;
+		case NONE: break;
 	}
 	pickable->load(zip);
 	return pickable;
@@ -22,24 +27,31 @@ bool Pickable::pick(Actor *owner, Actor *wearer) {
 }
 
 bool Pickable::use(Actor *owner, Actor *wearer) {
-	if (wearer->container) {
+	if (wearer->container && owner->pickable->stackSize < 2) {
 		wearer->container->remove(owner);
 		delete owner;
 		return true;
+	} else {
+		owner->pickable->stackSize -= 1;
 	}
 	return false;
 }
 
-Healer::Healer(float amount) : amount(amount) {
+Healer::Healer(float amount, bool stacks, int stackSize, PickableType type)
+	: Pickable(stacks,stackSize,type),amount(amount) {
 }
 
 void Healer::load(TCODZip &zip) {
 	amount = zip.getFloat();
+	stacks = zip.getInt();
+	stackSize = zip.getInt();
 }
 
 void Healer::save(TCODZip &zip) {
-	zip.putInt(HEALER);
+	zip.putInt(type);
 	zip.putFloat(amount);
+	zip.putInt(stacks);
+	zip.putInt(stackSize);
 }
 
 bool Healer::use(Actor *owner, Actor *wearer) {
@@ -52,19 +64,23 @@ bool Healer::use(Actor *owner, Actor *wearer) {
 	return false;
 }
 
-LightningBolt::LightningBolt(float range, float damage)
-	: range(range),damage(damage) {
+LightningBolt::LightningBolt(float range, float damage, bool stacks, int stackSize, PickableType type)
+	: Pickable(stacks, stackSize,type),range(range),damage(damage) {
 }
 
 void LightningBolt::load(TCODZip &zip) {
 	range = zip.getFloat();
 	damage = zip.getFloat();
+	stacks = zip.getInt();
+	stackSize = zip.getInt();
 }
 
 void LightningBolt::save(TCODZip &zip) {
-	zip.putInt(LIGHTNING_BOLT);
+	zip.putInt(type);
 	zip.putFloat(range);
 	zip.putFloat(damage);
+	zip.putInt(stacks);
+	zip.putInt(stackSize);
 }
 
 bool LightningBolt::use(Actor *owner, Actor *wearer) {
@@ -86,21 +102,25 @@ bool LightningBolt::use(Actor *owner, Actor *wearer) {
 	return Pickable::use(owner,wearer);
 }
 
-Fireball::Fireball(float range, float damage,float maxRange)
-	: LightningBolt(range, damage),maxRange(maxRange) {
+Fireball::Fireball(float range, float damage,float maxRange, bool stacks, int stackSize, PickableType type)
+	: LightningBolt(range, damage, stacks, stackSize, type),maxRange(maxRange) {
 }
 
 void Fireball::load(TCODZip &zip) {
 	range = zip.getFloat();
 	damage = zip.getFloat();
 	maxRange = zip.getFloat();
+	stacks = zip.getInt();
+	stackSize = zip.getInt();
 }
 
 void Fireball::save(TCODZip &zip) {
-	zip.putInt(FIREBALL);
+	zip.putInt(type);
 	zip.putFloat(range);
 	zip.putFloat(damage);
 	zip.putFloat(maxRange);
+	zip.putInt(stacks);
+	zip.putInt(stackSize);
 }
 
 bool Fireball::use(Actor *owner, Actor *wearer) {
@@ -128,19 +148,23 @@ bool Fireball::use(Actor *owner, Actor *wearer) {
 	return Pickable::use(owner,wearer);
 }
 
-Confuser::Confuser(int nbTurns, float range) 
-	: nbTurns(nbTurns), range(range) {
+Confuser::Confuser(int nbTurns, float range, bool stacks, int stackSize, PickableType type) 
+	: Pickable(stacks, stackSize, type),nbTurns(nbTurns), range(range) {
 }
 
 void Confuser::load(TCODZip &zip) {
 	nbTurns = zip.getInt();
 	range = zip.getFloat();
+	stacks = zip.getInt();
+	stackSize = zip.getInt();
 }
 
 void Confuser::save(TCODZip &zip) {
 	zip.putInt(CONFUSER);
 	zip.putInt(nbTurns);
 	zip.putFloat(range);
+	zip.putInt(stacks);
+	zip.putInt(stackSize);
 }
 
 bool Confuser::use(Actor *owner, Actor *wearer) {
@@ -173,14 +197,31 @@ bool Confuser::use(Actor *owner, Actor *wearer) {
 
 void Pickable::drop(Actor *owner, Actor *wearer) {
 	if (wearer->container) {
-		wearer->container->remove(owner);
-		engine.actors.push(owner);
-		owner->x = wearer->x;
-		owner->y = wearer->y;
+		int numberDropped = 1;
+		if (numberDropped >= owner->pickable->stackSize) {
+			wearer->container->remove(owner);
+			engine.actors.push(owner);
+			owner->x = wearer->x;
+			owner->y = wearer->y;
+		}
+		else {
+			Actor *droppy = new Actor(wearer->x, wearer->y, owner->ch,owner->name,owner->col);
+			PickableType type = owner->pickable->type;
+			owner->pickable->stackSize -= numberDropped;
+			switch(type) {
+				case HEALER: droppy->pickable = new Healer(((Healer*)owner->pickable)->amount); break;
+				case LIGHTNING_BOLT: droppy->pickable = new LightningBolt(((LightningBolt*)(owner->pickable))->range,((LightningBolt*)(owner->pickable))->damage); break;
+				case CONFUSER: droppy->pickable = new Confuser(((Confuser*)(owner->pickable))->nbTurns,((Confuser*)(owner->pickable))->range); break;
+				case FIREBALL: droppy->pickable = new Fireball(((Fireball*)(owner->pickable))->range,((Fireball*)(owner->pickable))->damage,((Fireball*)(owner->pickable))->maxRange); break;
+				case NONE: break;
+			}
+			droppy->pickable->stackSize = numberDropped;
+			engine.actors.push(droppy);
+		}
 		if (wearer == engine.player){
-			engine.gui->message(TCODColor::lightGrey,"You drop a %s",owner->name);
+			engine.gui->message(TCODColor::lightGrey,"You drop %d %s",numberDropped,owner->name);
 		}else {
-			engine.gui->message(TCODColor::lightGrey,"%s drops a %S",wearer->name,owner->name);
+			engine.gui->message(TCODColor::lightGrey,"%s drops %d %s",wearer->name,numberDropped,owner->name);
 		}
 	}
 }
