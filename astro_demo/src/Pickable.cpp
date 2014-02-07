@@ -122,8 +122,8 @@ bool Fireball::use(Actor *owner, Actor *wearer) {
 				engine.gui->message(TCODColor::orange,"The %s gets burned for %g hit points.",actor->name,damageTaken);
 			} else {
 			engine.gui->message(TCODColor::orange,"The %s is an ashen mound, crumbling under its own weight.",actor->name);
+			}
 		}
-	}
 	}
 	return Pickable::use(owner,wearer);
 }
