@@ -17,6 +17,13 @@ void Container::load(TCODZip &zip) {
 		inventory.push(actor);
 		nbActors--;
 	}
+	head = zip.getInt();
+	chest = zip.getInt();
+	legs = zip.getInt();
+	feet = zip.getInt();
+	hand1 = zip.getInt();
+	hand2 = zip.getInt();
+	ranged = zip.getInt();
 }
 
 void Container::save(TCODZip &zip) {
@@ -25,6 +32,13 @@ void Container::save(TCODZip &zip) {
 	for (Actor **it = inventory.begin(); it != inventory.end(); it++) {
 		(*it)->save(zip);
 	}
+	zip.putInt(head);
+	zip.putInt(chest);
+	zip.putInt(legs);
+	zip.putInt(feet);
+	zip.putInt(hand1);
+	zip.putInt(hand2);
+	zip.putInt(ranged);
 }
 
 bool Container::add(Actor *actor) {
@@ -33,12 +47,14 @@ bool Container::add(Actor *actor) {
 		return false;
 	}
 	bool wasIn = false;
-	for (Actor **it = inventory.begin(); it != inventory.end(); it++) {
-		Actor *act2 = *it;
-		if(strncmp(act2->name,actor->name,16) == 0) {
-			wasIn = true;
-			act2->pickable->stackSize += actor->pickable->stackSize;
-			delete actor;
+	if (actor->pickable->stacks) {
+		for (Actor **it = inventory.begin(); it != inventory.end(); it++) {
+			Actor *act2 = *it;
+			if(strncmp(act2->name,actor->name,16) == 0) {
+				wasIn = true;
+				act2->pickable->stackSize += actor->pickable->stackSize;
+				delete actor;
+			}
 		}
 	}
 	if (wasIn == false) {
@@ -49,4 +65,9 @@ bool Container::add(Actor *actor) {
 
 void Container::remove(Actor *actor) {
 	inventory.remove(actor);
+}
+
+void Container::sendToBegin(Actor *actor) {
+	inventory.remove(actor);
+	inventory.insertBefore(actor,0);
 }

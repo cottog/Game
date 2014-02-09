@@ -1,7 +1,7 @@
 class Pickable : public Persistent {
 public:
 	enum PickableType {
-		NONE,HEALER, LIGHTNING_BOLT, CONFUSER, FIREBALL
+		NONE,HEALER, LIGHTNING_BOLT, CONFUSER, FIREBALL, EQUIPMENT
 	};
 	bool stacks;
 	int stackSize;
@@ -53,3 +53,37 @@ public:
 	void load(TCODZip &zip);
 	void save(TCODZip &zip);
 };
+
+
+class ItemBonus {
+public:
+	enum BonusType {
+		NOBONUS, HEALTH, DEFENSE, ATTACK
+	};	
+	BonusType type;
+	float bonus;
+	
+	ItemBonus(BonusType type, float bonus);
+	void load(TCODZip &zip);
+	void save(TCODZip &zip);
+};
+
+class Equipment : public Pickable {
+public:
+	enum SlotType{
+		NOSLOT,HEAD, CHEST, LEGS, FEET, HAND1, HAND2, RANGED
+	};
+	
+	bool equipped;
+	SlotType slot;
+	ItemBonus *bonus;
+	Equipment(bool equipped = false, SlotType slot = NOSLOT, ItemBonus *bonus = NULL,
+		bool stacks = false, int stackSize = 1, PickableType type = EQUIPMENT);
+	bool use(Actor *owner, Actor *wearer);
+	void load(TCODZip &zip);
+	void save(TCODZip &zip);
+};
+
+
+
+

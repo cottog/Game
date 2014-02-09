@@ -12,6 +12,7 @@ Pickable *Pickable::create(TCODZip &zip) {
 		case LIGHTNING_BOLT: pickable = new LightningBolt(0,0); break;
 		case CONFUSER: pickable = new Confuser(0,0); break;
 		case FIREBALL: pickable = new Fireball(0,0,0); break;
+		case EQUIPMENT: pickable = new Equipment(0); break;
 		case NONE: break;
 	}
 	pickable->load(zip);
@@ -197,6 +198,9 @@ bool Confuser::use(Actor *owner, Actor *wearer) {
 
 void Pickable::drop(Actor *owner, Actor *wearer) {
 	if (wearer->container) {
+		if (((Equipment*)(owner->pickable))->equipped) {
+			((Equipment*)(owner->pickable))->use(owner,wearer);
+		}
 		int numberDropped = 1;
 		if (numberDropped >= owner->pickable->stackSize) {
 			wearer->container->remove(owner);
@@ -213,6 +217,7 @@ void Pickable::drop(Actor *owner, Actor *wearer) {
 				case LIGHTNING_BOLT: droppy->pickable = new LightningBolt(((LightningBolt*)(owner->pickable))->range,((LightningBolt*)(owner->pickable))->damage); break;
 				case CONFUSER: droppy->pickable = new Confuser(((Confuser*)(owner->pickable))->nbTurns,((Confuser*)(owner->pickable))->range); break;
 				case FIREBALL: droppy->pickable = new Fireball(((Fireball*)(owner->pickable))->range,((Fireball*)(owner->pickable))->damage,((Fireball*)(owner->pickable))->maxRange); break;
+				case EQUIPMENT: break;
 				case NONE: break;
 			}
 			droppy->pickable->stackSize = numberDropped;
@@ -224,4 +229,134 @@ void Pickable::drop(Actor *owner, Actor *wearer) {
 			engine.gui->message(TCODColor::lightGrey,"%s drops %d %s",wearer->name,numberDropped,owner->name);
 		}
 	}
+}
+
+ItemBonus::ItemBonus(BonusType type, float bonus) : 
+	type(type), bonus(bonus) {
+}
+
+void ItemBonus::save(TCODZip &zip) {
+	zip.putInt(type);
+	zip.putFloat(bonus);
+}
+
+void ItemBonus::load(TCODZip &zip) {
+	type = (BonusType)zip.getInt();
+	bonus = zip.getFloat();	
+}
+
+Equipment::Equipment(bool equipped, SlotType slot, ItemBonus *bonus, bool stacks, int stackSize, PickableType type)
+	: Pickable(stacks, stackSize,type), equipped(equipped), slot(slot), 
+	bonus(bonus) {
+}
+
+void Equipment::save(TCODZip &zip) {
+	zip.putInt(type);
+	zip.putInt(equipped);
+	zip.putInt(slot);
+	zip.putInt(stacks);
+	zip.putInt(stackSize);
+	bonus->save(zip);
+}
+
+void Equipment::load(TCODZip &zip) {
+	equipped = zip.getInt();
+	slot = (SlotType)zip.getInt();
+	stacks = zip.getInt();
+	stackSize = zip.getInt();
+	ItemBonus *bon = new ItemBonus(ItemBonus::NOBONUS,0);
+	bon->load(zip);
+	bonus = bon;
+}
+
+bool Equipment::use(Actor *owner, Actor *wearer) {
+	if (!equipped) {
+		switch(slot) {
+			case HEAD: 
+				if (wearer->container->head) {
+					engine.gui->message(TCODColor::orange,"You already have a head item equipped!");
+					return false;
+				} else {
+					wearer->container->head = true;
+				} break;
+			case CHEST:
+				if (wearer->container->chest) {
+					engine.gui->message(TCODColor::orange,"You already have a chest item equipped!");
+					return false;
+				} else {
+					wearer->container->chest = true;
+				} break;
+			case LEGS:
+				if (wearer->container->legs) {
+					engine.gui->message(TCODColor::orange,"You already have a leg item equipped!");
+					return false;
+				} else {
+					wearer->container->legs = true;
+				} break;
+			case FEET:
+				if (wearer->container->feet) {
+					engine.gui->message(TCODColor::orange,"You already have a foot item equipped!");
+					return false;
+				} else {
+					wearer->container->feet = true;
+				} break;
+			case HAND1:
+				if (wearer->container->hand1) {
+					engine.gui->message(TCODColor::orange,"You already have a melee weapon equipped!");
+					return false;
+				} else {
+					wearer->container->hand1 = true;
+				} break;
+			case HAND2:
+				if (wearer->container->hand2) {
+					engine.gui->message(TCODColor::orange,"You already have an off-hand item equipped!");
+					return false;
+				} else {
+					wearer->container->hand2 = true;
+				} break;
+			case RANGED:
+				if (wearer->container->ranged) {
+					engine.gui->message(TCODColor::orange,"You already have a ranged weapon equipped!");
+					return false;
+				} else {
+					wearer->container->ranged = true;
+				} break;
+			case NOSLOT: break;
+			default: break;
+		}
+		equipped = true;
+		switch(bonus->type) {
+			case ItemBonus::NOBONUS: break;
+			case ItemBonus::HEALTH: wearer->destructible->maxHp += bonus->bonus; wearer->destructible->hp += bonus->bonus; break;
+			case ItemBonus::DEFENSE: wearer->destructible->totalDefense += bonus->bonus; break;
+			case ItemBonus::ATTACK: wearer->attacker->totalPower += bonus->bonus; break;
+			default: break;
+		}
+		wearer->container->sendToBegin(owner);
+		return true;
+	} else {
+		equipped = false;
+		switch(slot) {
+			case HEAD: wearer->container->head = false; break;
+			case CHEST: wearer->container->chest = false; break;
+			case LEGS: wearer->container->legs = false; break;
+			case FEET: wearer->container->feet = false; break;
+			case HAND1: wearer->container->hand1 = false; break;
+			case HAND2: wearer->container->hand2 = false; break;
+			case RANGED: wearer->container->ranged = false; break;
+			case NOSLOT: break;
+			default: break;
+		}
+		switch(bonus->type) {
+			case ItemBonus::NOBONUS: break;
+			case ItemBonus::HEALTH: wearer->destructible->maxHp -= bonus->bonus; wearer->destructible->hp -= bonus->bonus; break;
+			case ItemBonus::DEFENSE: wearer->destructible->totalDefense -= bonus->bonus; break;
+			case ItemBonus::ATTACK: wearer->attacker->totalPower -= bonus->bonus; break;
+			default: break;
+		}
+		wearer->container->inventory.remove(owner);
+		wearer->container->inventory.push(owner);
+		return true;
+	}
+	return false;
 }

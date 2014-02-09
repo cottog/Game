@@ -57,11 +57,13 @@ void PlayerAi::update(Actor *owner) {
 				choice_made = true;
 				break;
 			case Menu::STRENGTH :
-				owner->attacker->power += 1;
+				owner->attacker->basePower += 1;
+				owner->attacker->totalPower += 1;
 				choice_made = true;
 				break;
 			case Menu::AGILITY:
-				owner->destructible->defense += 1;
+				owner->destructible->baseDefense += 1;
+				owner->destructible->totalDefense += 1;
 				choice_made = true;
 				break;
 			case Menu::NO_CHOICE:
